@@ -24,7 +24,7 @@ if "GEMINI_API_KEY" in st.secrets:
     gemini_key = st.secrets["GEMINI_API_KEY"]
     st.sidebar.success("已自動讀取 Gemini API Key！")
 else:
-    gemini_key = st.sidebar.text_input("AQ.Ab8RN6JXHiqU1XM9AranxeqhSBwa4NAZONXtFTSnjPcgQGeYiQ", type="password")
+    gemini_key = st.sidebar.text_input("請輸入你的 Gemini API Key:", type="password")
 
 if st.sidebar.button("手動刷新所有數據"):
     st.cache_data.clear()
