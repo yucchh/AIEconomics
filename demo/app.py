@@ -29,7 +29,8 @@ def get_fred_data(api_key):
         "CPI 物價指數": fred.get_series("CPIAUCSL"),
         "10年期美債殖利率": fred.get_series("DGS10"),
         "美國失業率": fred.get_series("UNRATE"),
-        "聯邦基金利率": fred.get_series("FEDFUNDS")
+        "聯邦基金利率": fred.get_series("FEDFUNDS"),
+        "日本10年期公債殖利率": fred.get_series("IRLTLT01JPM156N")  # 新增：日本 10 年期公債殖利率
     }
     df = pd.DataFrame(data).ffill().tail(365)
     return df
@@ -41,9 +42,18 @@ def get_market_data():
         "S&P 500": "^GSPC",
         "台灣加權指數": "^TWII",
         "布蘭特原油": "BZ=F",
-        "美元/台幣匯率": "TWD=X"
+        "美元/台幣匯率": "TWD=X",
+        "黃金現貨價格": "GC=F"  # 新增：黃金期貨/現貨
     }
-    df = yf.download(list(tickers.values()), period="1y")["Close"]
+    # 使用 yfinance 抓取數據
+    raw_data = yf.download(list(tickers.values()), period="1y")
+    
+    # 兼容處理：確保能抓到 Close 欄位（應對 yfinance 版本差異）
+    if isinstance(raw_data.columns, pd.MultiIndex):
+        df = raw_data["Close"]
+    else:
+        df = raw_data[["Close"]]
+        
     df.rename(columns={v: k for k, v in tickers.items()}, inplace=True)
     return df
 
@@ -53,9 +63,9 @@ if fred_key:
         macro_df = get_fred_data(fred_key)
         market_df = get_market_data()
 
-        # 第一區塊：核心 KPI 卡片
+        # 第一區塊：核心 KPI 卡片 (改為 5 等分欄位以保持美觀)
         st.subheader("📊 關鍵總體經濟指標 (FRED)")
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         latest_cpi = macro_df["CPI 物價指數"].dropna().iloc[-1]
         col1.metric("CPI 物價指數", f"{latest_cpi:.1f}")
@@ -69,6 +79,10 @@ if fred_key:
         
         latest_fed = macro_df["聯邦基金利率"].dropna().iloc[-1]
         col4.metric("聯邦基金利率", f"{latest_fed:.2f}%")
+        
+        latest_jp = macro_df["日本10年期公債殖利率"].dropna().iloc[-1]
+        jp_prev = macro_df["日本10年期公債殖利率"].dropna().iloc[-2]
+        col5.metric("日本10年期公債殖利率", f"{latest_jp:.2f}%", f"{latest_jp - jp_prev:+.2f}%")
 
         # 第二區塊：互動式圖表
         st.write("---")
@@ -77,16 +91,16 @@ if fred_key:
         tab1, tab2 = st.tabs(["金融市場走勢 (yfinance)", "總體經濟趨勢 (FRED)"])
         
         with tab1:
-            market_choice = st.selectbox("選擇金融市場標的：", market_df.columns)
+            market_choice = st.selectbox("選擇金融市場標的：", market_df.columns, key="market_select")
             fig1 = px.line(market_df, y=market_choice, title=f"{market_choice} 近一年走勢")
             st.plotly_chart(fig1, use_container_width=True)
             
         with tab2:
-            macro_choice = st.selectbox("選擇總體經濟指標：", macro_df.columns)
+            macro_choice = st.selectbox("選擇總體經濟指標：", macro_df.columns, key="macro_select")
             fig2 = px.line(macro_df, y=macro_choice, title=f"{macro_choice} 近一年走勢")
             st.plotly_chart(fig2, use_container_width=True)
 
     except Exception as e:
-        st.error(f"數據讀取失敗，請確認 FRED API Key 是否正確。錯誤訊息: {e}")
+        st.error(f"數據讀取失敗，請確認 FRED API Key 是否正確或網路連線。錯誤訊息: {e}")
 else:
     st.info("👈 請在左側輸入您的 FRED API Key 以開啟儀表板。")
