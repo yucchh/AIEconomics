@@ -165,3 +165,4 @@ if fred_key:
 
 else:
     st.info("👈 請先在左側側邊欄輸入您的 **FRED API Key**，儀表板與 AI 按鈕即會自動解鎖展開！")
+    
