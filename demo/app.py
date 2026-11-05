@@ -30,7 +30,7 @@ def get_fred_data(api_key):
         "10年期美債殖利率": fred.get_series("DGS10"),
         "美國失業率": fred.get_series("UNRATE"),
         "聯邦基金利率": fred.get_series("FEDFUNDS"),
-        "日本10年期公債殖利率": fred.get_series("IRLTLT01JPM156N")  # 新增：日本 10 年期公債殖利率
+        "日本10年期公債殖利率": fred.get_series("IRLTLT01JPM156N")  # 日本 10 年期公債殖利率
     }
     df = pd.DataFrame(data).ffill().tail(365)
     return df
@@ -43,7 +43,7 @@ def get_market_data():
         "台灣加權指數": "^TWII",
         "布蘭特原油": "BZ=F",
         "美元/台幣匯率": "TWD=X",
-        "黃金現貨價格": "GC=F"  # 新增：黃金期貨/現貨
+        "黃金現貨價格": "GC=F"
     }
     # 使用 yfinance 抓取數據
     raw_data = yf.download(list(tickers.values()), period="1y")
@@ -63,7 +63,7 @@ if fred_key:
         macro_df = get_fred_data(fred_key)
         market_df = get_market_data()
 
-        # 第一區塊：核心 KPI 卡片 (改為 5 等分欄位以保持美觀)
+        # 第一區塊：核心 KPI 卡片 (5 等分欄位)
         st.subheader("📊 關鍵總體經濟指標 (FRED)")
         col1, col2, col3, col4, col5 = st.columns(5)
         
@@ -80,9 +80,17 @@ if fred_key:
         latest_fed = macro_df["聯邦基金利率"].dropna().iloc[-1]
         col4.metric("聯邦基金利率", f"{latest_fed:.2f}%")
         
+        # 日本 10 年期公債殖利率（加入變動量過濾邏輯）
         latest_jp = macro_df["日本10年期公債殖利率"].dropna().iloc[-1]
         jp_prev = macro_df["日本10年期公債殖利率"].dropna().iloc[-2]
-        col5.metric("日本10年期公債殖利率", f"{latest_jp:.2f}%", f"{latest_jp - jp_prev:+.2f}%")
+        jp_diff = latest_jp - jp_prev
+        
+        if abs(jp_diff) < 0.005:
+            # 變動太小（相當於 0%）時，不顯示 delta
+            col5.metric("日本10年期公債殖利率", f"{latest_jp:.2f}%")
+        else:
+            # 有實質變動時才顯示增加率
+            col5.metric("日本10年期公債殖利率", f"{latest_jp:.2f}%", f"{jp_diff:+.2f}%")
 
         # 第二區塊：互動式圖表
         st.write("---")
