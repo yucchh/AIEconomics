@@ -150,7 +150,7 @@ if fred_key:
                         
                         # 呼叫 gemini-2.5-flash 模型
                         response = client.models.generate_content(
-                            model="gemini-2.5-flash",
+                            model="gemini-3.8-flash",
                             contents=prompt_text,
                         )
                         
