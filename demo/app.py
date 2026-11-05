@@ -21,18 +21,22 @@ else:
 if st.sidebar.button("手動刷新數據"):
     st.cache_data.clear()
 
-# 1. 抓取 FRED 數據 (設快取 1 小時)
+# 1. 抓取 FRED 數據並計算利差 (設快取 1 小時)
 @st.cache_data(ttl=3600)
 def get_fred_data(api_key):
     fred = Fred(api_key=api_key)
     data = {
         "CPI 物價指數": fred.get_series("CPIAUCSL"),
         "10年期美債殖利率": fred.get_series("DGS10"),
+        "2年期美債殖利率": fred.get_series("DGS2"),  # 新增：2年期美債
         "美國失業率": fred.get_series("UNRATE"),
         "聯邦基金利率": fred.get_series("FEDFUNDS"),
-        "日本10年期公債殖利率": fred.get_series("IRLTLT01JPM156N")  # 日本 10 年期公債殖利率
+        "日本10年期公債殖利率": fred.get_series("IRLTLT01JPM156N")
     }
     df = pd.DataFrame(data).ffill().tail(365)
+    
+    # 計算 10 年期美債減去 2 年期美債利差
+    df["10-2年美債利差"] = df["10年期美債殖利率"] - df["2年期美債殖利率"]
     return df
 
 # 2. 抓取 Market 數據 (設快取 10 分鐘)
@@ -45,10 +49,8 @@ def get_market_data():
         "美元/台幣匯率": "TWD=X",
         "黃金現貨價格": "GC=F"
     }
-    # 使用 yfinance 抓取數據
     raw_data = yf.download(list(tickers.values()), period="1y")
     
-    # 兼容處理：確保能抓到 Close 欄位（應對 yfinance 版本差異）
     if isinstance(raw_data.columns, pd.MultiIndex):
         df = raw_data["Close"]
     else:
@@ -62,6 +64,13 @@ if fred_key:
     try:
         macro_df = get_fred_data(fred_key)
         market_df = get_market_data()
+
+        # 檢查最新利差並顯示警示燈號
+        latest_spread = macro_df["10-2年美債利差"].dropna().iloc[-1]
+        if latest_spread < 0:
+            st.warning(f"🚨 **【經濟衰退警示】美國公債殖利率曲線發生倒掛！** 當前 10 年期與 2 年期美債利差為 **{latest_spread:.2f}%**（小於 0）。歷史經驗顯示，這通常是經濟衰退的前兆訊號。")
+        else:
+            st.success(f"✅ 當前 10 年期與 2 年期美債利差為 **{latest_spread:.2f}%**（維持正常正斜率）。")
 
         # 第一區塊：核心 KPI 卡片 (5 等分欄位)
         st.subheader("📊 關鍵總體經濟指標 (FRED)")
@@ -80,16 +89,12 @@ if fred_key:
         latest_fed = macro_df["聯邦基金利率"].dropna().iloc[-1]
         col4.metric("聯邦基金利率", f"{latest_fed:.2f}%")
         
-        # 日本 10 年期公債殖利率（加入變動量過濾邏輯）
         latest_jp = macro_df["日本10年期公債殖利率"].dropna().iloc[-1]
         jp_prev = macro_df["日本10年期公債殖利率"].dropna().iloc[-2]
         jp_diff = latest_jp - jp_prev
-        
         if abs(jp_diff) < 0.005:
-            # 變動太小（相當於 0%）時，不顯示 delta
             col5.metric("日本10年期公債殖利率", f"{latest_jp:.2f}%")
         else:
-            # 有實質變動時才顯示增加率
             col5.metric("日本10年期公債殖利率", f"{latest_jp:.2f}%", f"{jp_diff:+.2f}%")
 
         # 第二區塊：互動式圖表
