@@ -5,6 +5,3 @@ yfinance
 fredapi
 feedparser
 google-generativeai
-git add requirements.txt
-git commit -m "Add google-genai to requirements"
-git push origin main
