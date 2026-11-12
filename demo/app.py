@@ -8,7 +8,7 @@ from google import genai
 # 設定網頁版面與標題 (必須是第一個執行的 streamlit 指令)
 st.set_page_config(
     page_title="智能金融與總經 AI 分析平台",
-    page_layout="wide",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
