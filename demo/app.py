@@ -5,7 +5,7 @@ import requests
 from datetime import datetime
 from google import genai
 
-# 設定網頁版面與標題
+# 設定網頁版面與標題 (必須是第一個執行的 streamlit 指令)
 st.set_page_config(
     page_title="智能金融與總經 AI 分析平台",
     page_layout="wide",
@@ -15,13 +15,12 @@ st.set_page_config(
 st.title("📈 智能金融、總經數據與 Gemini AI 鷹鴿分析平台")
 st.markdown("本系統整合了 **yfinance 即時走勢**、**FRED 總經指標**、**動態關鍵字標的搜尋** 以及 **Gemini AI 貨幣政策情緒分析**。")
 
-# ==================== 側邊欄設定 ====================
+# 側邊欄設定
 st.sidebar.header("⚙️ 參數與 API 設定")
 api_key = st.sidebar.text_input("Gemini API Key", type="password", help="請輸入你的 Google Gemini API Key 以啟用 AI 鷹鴿分析")
 
 st.sidebar.divider()
 st.sidebar.header("🔍 動態標的搜尋")
-# 提供中英文動態搜尋提示或直接輸入代號
 search_query = st.sidebar.text_input("輸入股票/期貨代號 (例如: 2330.TW, AAPL, ^TWII)", value="2330.TW")
 
 st.sidebar.divider()
@@ -44,10 +43,10 @@ if api_key:
     except Exception as e:
         st.sidebar.error(f"Gemini 初始化失敗: {e}")
 
-# ==================== 主頁籤介面 ====================
+# 主頁籤介面
 tab1, tab2, tab3 = st.tabs(["📊 金融市場走勢", "🌐 FRED 總經數據庫", "🤖 Gemini AI 鷹鴿情緒分析"])
 
-# ----------------- Tab 1: yfinance 金融走勢 -----------------
+# Tab 1: yfinance 金融走勢
 with tab1:
     st.subheader(f"標的即時與歷史走勢：{search_query.upper()}")
     
@@ -77,18 +76,15 @@ with tab1:
         except Exception as e:
             st.error(f"載入 yfinance 資料發生錯誤: {e}")
 
-# ----------------- Tab 2: FRED 總經數據 -----------------
+# Tab 2: FRED 總經數據
 with tab2:
     series_id = fred_series.split()[0]
     st.subheader(f"美國聯準會經濟數據 (FRED): {fred_series}")
     
     try:
         with st.spinner(f"正在載入 FRED 指標 {series_id}..."):
-            # 透過 FRED 官方公開 CSV 介面讀取數據，無需額外金鑰
             fred_csv_url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
             df_fred = pd.read_csv(fred_csv_url, index_col=0, parse_dates=True)
-            
-            # 清理無效資料
             df_fred = df_fred.dropna()
             
             st.line_chart(df_fred)
@@ -98,14 +94,14 @@ with tab2:
                 st.write("最新數據紀錄：")
                 st.dataframe(df_fred.tail(5), use_container_width=True)
             with col_b:
-                st.info("💡 **小知識**：FRED（Federal Reserve Economic Data）是由聖路易斯聯邦儲備銀行維護的權威總經數據庫，提供最可靠的利率、通膨與就業指標。")
+                st.info("💡 **小知識**：FRED（Federal Reserve Economic Data）是由聖路易斯聯邦儲備銀行維護的權威總經數據庫。")
     except Exception as e:
         st.error(f"無法載入 FRED 數據，可能是網路連線或代號有誤: {e}")
 
-# ----------------- Tab 3: Gemini AI 鷹鴿情緒分析 -----------------
+# Tab 3: Gemini AI 鷹鴿情緒分析
 with tab3:
     st.subheader("🤖 聯準會 / 財經談話鷹鴿傾向 AI 分析")
-    st.markdown("貼上最新的聯準會主席演講、FOMC 會議聲明或財經新聞，讓 Gemini AI 進行專業的**鷹派（升息/緊縮）**與**鴿派（降息/寬鬆）**情緒評估。")
+    st.markdown("貼上最新的聯準會主席演講、FOMC 會議聲明或財經新聞，讓 Gemini AI 進行專業的鷹派與鴿派情緒評估。")
     
     default_text = (
         "Federal Reserve Chair Jerome Powell stated during the press conference that inflation has eased "
