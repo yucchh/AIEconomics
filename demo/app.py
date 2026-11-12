@@ -38,7 +38,7 @@ if st.sidebar.button("手動刷新數據"):
     st.cache_data.clear()
 
 # ==========================================
-# 2. 數據抓取函式 (FRED, yfinance, RSS 新聞)
+# 2. 數據抓取函式 (FRED, yfinance, 動態語系 RSS 新聞)
 # ==========================================
 @st.cache_data(ttl=3600)
 def get_fred_data(api_key):
@@ -65,10 +65,10 @@ def get_market_data():
     return df
 
 @st.cache_data(ttl=1800)
-def fetch_google_news(keyword="Federal Reserve Inflation"):
-    # 使用 quote 轉碼，確保包含空白或特殊字元之關鍵字連線成功
+def fetch_google_news(keyword, lang="zh-TW", region="TW"):
     safe_keyword = quote(keyword)
-    url = f"https://news.google.com/rss/search?q={safe_keyword}&hl=en-US"
+    # 動態調整 Google News RSS 參數，支援中文與全球財經新聞搜尋
+    url = f"https://news.google.com/rss/search?q={safe_keyword}&hl={lang}&gl={region}&ceid={region}:{lang.split('-')[0]}"
     feed = feedparser.parse(url)
     return [entry.title for entry in feed.entries[:8]]
 
@@ -122,34 +122,55 @@ if fred_key:
         with tab3:
             st.subheader("📰 即時財經新聞與 LLM 鷹鴿派情緒分析")
             
-            search_kw = st.text_input("🔍 輸入新聞關鍵字 (預設: Federal Reserve Inflation):", value="Federal Reserve Inflation")
-            news_titles = fetch_google_news(search_kw)
+            # 動態關鍵字與語系選擇介面
+            col_search1, col_search2 = st.columns([3, 1])
+            with col_search1:
+                search_kw = st.text_input(
+                    "🔍 輸入新聞關鍵字 (支援中文或英文，例如：聯準會 降息、TSMC、Taiwan Economy):", 
+                    value="聯準會 降息"
+                )
+            with col_search2:
+                lang_choice = st.selectbox(
+                    "新聞語系與地區", 
+                    ["繁體中文 (台灣)", "英文 (美國/全球)"],
+                    index=0
+                )
+            
+            # 對應 Google News 參數
+            if "繁體中文" in lang_choice:
+                news_lang, news_region = "zh-TW", "TW"
+            else:
+                news_lang, news_region = "en-US", "US"
+
+            news_titles = fetch_google_news(search_kw, lang=news_lang, region=news_region)
 
             nlp_col1, nlp_col2 = st.columns([1, 1])
 
             with nlp_col1:
-                st.markdown("### 📌 最新財經新聞標題 (RSS)")
+                st.markdown(f"### 📌 「{search_kw}」最新財經新聞標題")
                 if news_titles:
                     for i, title in enumerate(news_titles, 1):
                         st.write(f"**{i}.** {title}")
                 else:
-                    st.warning("查無相關新聞標題，請嘗試更換關鍵字。")
+                    st.warning("查無相關新聞標題，請嘗試更換關鍵字或切換語系。")
 
             with nlp_col2:
                 st.markdown("### 🤖 Gemini AI 鷹鴿派與情緒打分")
                 if gemini_key:
                     if st.button("🚀 開始分析新聞市場情緒", type="primary"):
                         if news_titles:
-                            with st.spinner("Gemini 正在剖析文本立場與鷹鴿情緒中..."):
+                            with st.spinner("Gemini 正在剖析文本立場與情緒中..."):
                                 try:
                                     news_text = "\n".join([f"- {t}" for t in news_titles])
-                                    prompt = f"你是一位專業總體經濟分析師。請分析以下 8 條新聞標題：\n{news_text}\n\n" \
-                                             f"請以繁體中文輸出結構化報告：\n" \
-                                             f"1. 整體市場情緒分數 (0~100)\n" \
-                                             f"2. 貨幣政策立場判定 (鷹派/鴿派/中立)\n" \
-                                             f"3. 重點分析與逐條評分表格 (Markdown Format)"
+                                    prompt = (
+                                        f"你是一位專業總體經濟與金融分析師。請分析以下關於「{search_kw}」的 {len(news_titles)} 條新聞標題：\n"
+                                        f"{news_text}\n\n"
+                                        f"請以繁體中文輸出結構化報告：\n"
+                                        f"1. 整體市場情緒分數 (0~100 分，0為極度悲觀/恐慌，100為極度樂觀)\n"
+                                        f"2. 政策立場或市場風向判定 (如：鷹派、鴿派、利多、利空或中立)\n"
+                                        f"3. 核心重點分析與逐條新聞影響評分表格 (Markdown 格式)"
+                                    )
                                     
-                                    # 使用最新 Gemini 3.5 Flash 模型
                                     model = genai.GenerativeModel("gemini-3.5-flash")
                                     response = model.generate_content(prompt)
                                     st.markdown(response.text)
@@ -158,7 +179,7 @@ if fred_key:
                         else:
                             st.warning("尚無新聞數據可供分析。")
                 else:
-                    st.warning("👈 請在側邊欄輸入 Gemini API Key（或設定在 Secrets 中）以啟用 AI 文本情緒分析功能。")
+                    st.warning("👈 請先在側邊欄輸入 Gemini API Key 才能啟用 AI 分析功能。")
 
     except Exception as e:
         st.error(f"數據讀取失敗，請確認 FRED API Key 是否正確。錯誤訊息: {e}")
